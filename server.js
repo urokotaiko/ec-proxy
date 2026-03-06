@@ -83,7 +83,6 @@ app.get('/fetch', requireApiKey, async (req, res) => {
     return res.status(400).json({ error: 'urlパラメータが必要です' });
   }
 
-  // httpまたはhttpsのみ許可（javascript:// などを弾く）
   if (!/^https?:\/\//i.test(url)) {
     return res.status(400).json({ error: 'http または https のURLのみ対応しています' });
   }
@@ -96,7 +95,7 @@ app.get('/fetch', requireApiKey, async (req, res) => {
         'Accept-Language': 'ja,en;q=0.9',
       },
       redirect: 'follow',
-      signal: AbortSignal.timeout(15000),  // 15秒タイムアウト
+      signal: AbortSignal.timeout(15000),
     });
 
     const contentType = response.headers.get('content-type') || 'text/html';
@@ -104,7 +103,7 @@ app.get('/fetch', requireApiKey, async (req, res) => {
 
     res.status(response.status)
        .setHeader('Content-Type', contentType)
-       .setHeader('X-Final-Url', response.url)           // リダイレクト後の最終URL
+       .setHeader('X-Final-Url', response.url)
        .setHeader('X-Status-Code', response.status)
        .send(body);
 
@@ -113,6 +112,38 @@ app.get('/fetch', requireApiKey, async (req, res) => {
       return res.status(504).json({ error: 'タイムアウト：サイトの応答が遅すぎます（15秒超過）' });
     }
     res.status(500).json({ error: '取得失敗：' + err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// Anthropic API 中継エンドポイント
+// ブラウザから直接Anthropic APIを呼べないため、Render経由で中継する
+// ─────────────────────────────────────────────
+app.use(express.json({ limit: '2mb' }));
+
+app.post('/anthropic', requireApiKey, async (req, res) => {
+  try {
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (!anthropicKey) {
+      return res.status(500).json({ error: 'ANTHROPIC_API_KEYが環境変数に設定されていません' });
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(req.body),
+      signal: AbortSignal.timeout(120000), // 2分タイムアウト
+    });
+
+    const data = await response.json();
+    res.status(response.status).json(data);
+
+  } catch (err) {
+    res.status(500).json({ error: 'Anthropic API中継エラー：' + err.message });
   }
 });
 
