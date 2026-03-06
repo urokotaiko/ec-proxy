@@ -142,7 +142,7 @@ app.post('/gemini', requireApiKey, async (req, res) => {
         'X-Title': 'EC Auto Checker',
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-chat-v3-0324:free',
+        model: 'openrouter/auto',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.2,
         max_tokens: 8192,
