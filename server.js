@@ -142,7 +142,7 @@ app.post('/gemini', requireApiKey, async (req, res) => {
         'X-Title': 'EC Auto Checker',
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-maverick:free',
+        model: 'google/gemini-2.0-flash-exp:free',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.2,
         max_tokens: 8192,
