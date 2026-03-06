@@ -9,6 +9,7 @@ const cors       = require('cors');
 const rateLimit  = require('express-rate-limit');
 
 const app = express();
+app.set('trust proxy', 1); // Render環境でのプロキシ設定
 
 // ─────────────────────────────────────────────
 // 設定（環境変数から読み込む）
@@ -151,8 +152,19 @@ app.post('/gemini', requireApiKey, async (req, res) => {
 
     const data = await response.json();
 
-    // Geminiのレスポンスからテキストを取り出してシンプルな形式で返す
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Geminiのレスポンスからテキストを取り出す（複数パターンに対応）
+    let text = '';
+    if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      text = data.candidates[0].content.parts[0].text;
+    } else if (data?.error) {
+      console.error('Gemini APIエラー:', JSON.stringify(data.error));
+      return res.status(500).json({ error: 'Gemini APIエラー: ' + (data.error.message || JSON.stringify(data.error)) });
+    } else {
+      console.error('Gemini 予期しないレスポンス:', JSON.stringify(data).slice(0, 500));
+      return res.status(500).json({ error: 'Geminiから有効なレスポンスが得られませんでした', detail: JSON.stringify(data).slice(0, 200) });
+    }
+
+    console.log('Gemini成功 テキスト長:', text.length);
     res.json({ text });
 
   } catch (err) {
