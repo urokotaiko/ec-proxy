@@ -664,9 +664,12 @@ ops: 注文通知メール、お問い合わせフォーム、在庫管理`;
   addLog('check', 'AIが診断レポートを生成中...');
   updatePct(65);
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+  const resp = await fetch(`${PROXY_URL}/anthropic`, {
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{
+      'Content-Type':'application/json',
+      'x-proxy-key': PROXY_KEY
+    },
     body:JSON.stringify({
       model:'claude-sonnet-4-20250514',
       max_tokens:5000,
@@ -892,7 +895,7 @@ function buildDemoResult(url) {
 // ────────────────────────────────────
 // パスワード設定（変更する場合はここを書き換える）
 // ────────────────────────────────────
-const APP_PASSWORD = 'nekonikoban';  // ← ここを好きなパスワードに変更
+const APP_PASSWORD = 'ec-checker-2024';  // ← ここを好きなパスワードに変更
 
 // ────────────────────────────────────
 // INIT
