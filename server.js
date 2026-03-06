@@ -160,6 +160,6 @@ app.get('/health', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ ECプロキシサーバー起動中`);
   console.log(`   ポート      : ${PORT}`);
-  console.log(`   許可ドメイン : ${ALLOWED_ORIGINS.join(', ')}`);
+  console.log(`   許可ドメイン : ${ALLOWED_ORIGINS ? ALLOWED_ORIGINS.join(', ') : '全て許可'}`);
   console.log(`   APIキー     : ${SECRET_KEY.slice(0, 4)}****（環境変数 PROXY_SECRET_KEY で変更可）`);
 });
