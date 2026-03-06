@@ -15,21 +15,40 @@ const app = express();
 // ─────────────────────────────────────────────
 const PORT       = process.env.PORT       || 3001;
 const SECRET_KEY = process.env.PROXY_SECRET_KEY || 'change-this-to-your-secret-key';
+
+// ALLOWED_ORIGINSが環境変数に設定されていればそれを使う
+// 設定がなければ GitHub Pages・localhost・file:// を全て許可
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:5500', 'http://127.0.0.1:5500', 'http://localhost:3000'];
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : null; // nullの場合は全許可
 
 // ─────────────────────────────────────────────
 // ① CORS：許可するドメインを制限
 // ─────────────────────────────────────────────
 app.use(cors({
   origin: (origin, callback) => {
-    // originがない（同一オリジン・curlなど）は通す
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('このドメインからのアクセスは許可されていません: ' + origin));
+    // ALLOWED_ORIGINSが未設定の場合は全て許可（開発・GitHub Pages対応）
+    if (!ALLOWED_ORIGINS) {
+      return callback(null, true);
     }
+    // originがない（curl・同一オリジン）またはnull（file://）は許可
+    if (!origin || origin === 'null') {
+      return callback(null, true);
+    }
+    // GitHub PagesのURLパターンを自動許可（*.github.io）
+    if (/^https:\/\/[^.]+\.github\.io$/.test(origin)) {
+      return callback(null, true);
+    }
+    // localhostは常に許可（開発用）
+    if (/^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    // 明示的に許可されたドメイン
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('このドメインからのアクセスは許可されていません: ' + origin));
   }
 }));
 
