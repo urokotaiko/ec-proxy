@@ -117,16 +117,15 @@ app.get('/fetch', requireApiKey, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// Gemini API 中継エンドポイント
-// ブラウザから直接Gemini APIを呼べないため、Render経由で中継する
+// OpenRouter API 中継エンドポイント
 // ─────────────────────────────────────────────
 app.use(express.json({ limit: '2mb' }));
 
 app.post('/gemini', requireApiKey, async (req, res) => {
   try {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) {
-      return res.status(500).json({ error: 'GEMINI_API_KEYが環境変数に設定されていません' });
+    const openrouterKey = process.env.OPENROUTER_API_KEY;
+    if (!openrouterKey) {
+      return res.status(500).json({ error: 'OPENROUTER_API_KEYが環境変数に設定されていません' });
     }
 
     const { prompt } = req.body;
@@ -134,41 +133,41 @@ app.post('/gemini', requireApiKey, async (req, res) => {
       return res.status(400).json({ error: 'promptが必要です' });
     }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 8192,
-          }
-        }),
-        signal: AbortSignal.timeout(120000),
-      }
-    );
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openrouterKey}`,
+        'HTTP-Referer': 'https://urokotaiko.github.io',
+        'X-Title': 'EC Auto Checker',
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-maverick:free',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2,
+        max_tokens: 8192,
+      }),
+      signal: AbortSignal.timeout(120000),
+    });
 
     const data = await response.json();
 
-    // Geminiのレスポンスからテキストを取り出す（複数パターンに対応）
-    let text = '';
-    if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-      text = data.candidates[0].content.parts[0].text;
-    } else if (data?.error) {
-      console.error('Gemini APIエラー:', JSON.stringify(data.error));
-      return res.status(500).json({ error: 'Gemini APIエラー: ' + (data.error.message || JSON.stringify(data.error)) });
-    } else {
-      console.error('Gemini 予期しないレスポンス:', JSON.stringify(data).slice(0, 500));
-      return res.status(500).json({ error: 'Geminiから有効なレスポンスが得られませんでした', detail: JSON.stringify(data).slice(0, 200) });
+    if (data?.error) {
+      console.error('OpenRouter APIエラー:', JSON.stringify(data.error));
+      return res.status(500).json({ error: 'OpenRouter APIエラー: ' + (data.error.message || JSON.stringify(data.error)) });
     }
 
-    console.log('Gemini成功 テキスト長:', text.length);
+    const text = data?.choices?.[0]?.message?.content || '';
+    if (!text) {
+      console.error('OpenRouter 予期しないレスポンス:', JSON.stringify(data).slice(0, 500));
+      return res.status(500).json({ error: '有効なレスポンスが得られませんでした' });
+    }
+
+    console.log('OpenRouter成功 テキスト長:', text.length);
     res.json({ text });
 
   } catch (err) {
-    res.status(500).json({ error: 'Gemini API中継エラー：' + err.message });
+    res.status(500).json({ error: 'OpenRouter API中継エラー：' + err.message });
   }
 });
 
