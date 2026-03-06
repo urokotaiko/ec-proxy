@@ -116,34 +116,47 @@ app.get('/fetch', requireApiKey, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// Anthropic API 中継エンドポイント
-// ブラウザから直接Anthropic APIを呼べないため、Render経由で中継する
+// Gemini API 中継エンドポイント
+// ブラウザから直接Gemini APIを呼べないため、Render経由で中継する
 // ─────────────────────────────────────────────
 app.use(express.json({ limit: '2mb' }));
 
-app.post('/anthropic', requireApiKey, async (req, res) => {
+app.post('/gemini', requireApiKey, async (req, res) => {
   try {
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    if (!anthropicKey) {
-      return res.status(500).json({ error: 'ANTHROPIC_API_KEYが環境変数に設定されていません' });
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return res.status(500).json({ error: 'GEMINI_API_KEYが環境変数に設定されていません' });
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(req.body),
-      signal: AbortSignal.timeout(120000), // 2分タイムアウト
-    });
+    const { prompt } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: 'promptが必要です' });
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 8192,
+          }
+        }),
+        signal: AbortSignal.timeout(120000),
+      }
+    );
 
     const data = await response.json();
-    res.status(response.status).json(data);
+
+    // Geminiのレスポンスからテキストを取り出してシンプルな形式で返す
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    res.json({ text });
 
   } catch (err) {
-    res.status(500).json({ error: 'Anthropic API中継エラー：' + err.message });
+    res.status(500).json({ error: 'Gemini API中継エラー：' + err.message });
   }
 });
 
